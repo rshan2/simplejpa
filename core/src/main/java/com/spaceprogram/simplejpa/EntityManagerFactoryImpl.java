@@ -32,6 +32,7 @@ import com.amazonaws.ClientConfiguration;
 import com.amazonaws.Protocol;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.auth.PropertiesCredentials;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
@@ -217,19 +218,33 @@ public class EntityManagerFactoryImpl implements EntityManagerFactory {
             logger.info("Loading credentials from simplejpa.properties");
             String awsAccessKey = (String) this.props.get(AWSACCESS_KEY_PROP_NAME);
             String awsSecretKey = (String) this.props.get(AWSSECRET_KEY_PROP_NAME);
+            
+            /*
             if (awsAccessKey == null || awsAccessKey.length() == 0) {
                 throw new PersistenceException("AWS Access Key not found. It is a required property.");
             }
             if (awsSecretKey == null || awsSecretKey.length() == 0) {
                 throw new PersistenceException("AWS Secret Key not found. It is a required property.");
             }
+			*/
 
-            awsCredentials = new BasicAWSCredentials(awsAccessKey, awsSecretKey);
+            if( !( (awsAccessKey == null || awsAccessKey.length() == 0) || 
+            		(awsSecretKey == null || awsSecretKey.length() == 0) ) )
+            	awsCredentials = new BasicAWSCredentials(awsAccessKey, awsSecretKey);
         }
+            
+        if( awsCredentials == null ) {
+            DefaultAWSCredentialsProviderChain dcpc = new DefaultAWSCredentialsProviderChain();
+            
+            awsCredentials = dcpc.getCredentials();
+        }
+        
+        if( awsCredentials == null )
+            throw new PersistenceException("Could not determine AWS credentials.");
 
         this.simpleDbClient = new AmazonSimpleDBClient(awsCredentials, createConfiguration(sdbSecure));
         this.simpleDbClient.setEndpoint(sdbEndpoint);
-
+        
         this.s3Client = new AmazonS3Client(awsCredentials, createConfiguration(s3Secure));
         this.s3Client.setEndpoint(s3Endpoint);
     }
@@ -408,13 +423,34 @@ public class EntityManagerFactoryImpl implements EntityManagerFactory {
         Properties props2 = new Properties();
         String propsFileName = "/simplejpa.properties";
         InputStream stream = this.getClass().getResourceAsStream(propsFileName);
+        
+        /* 
+           If creds not found in simplejpa.properties, leave it to aws to figure it out (see createClients).
+           All other properties are optional, so don't fail if file not found.
+        
         if (stream == null) {
             throw new FileNotFoundException(propsFileName + " not found on classpath. Could not initialize SimpleJPA.");
         }
-        props2.load(stream);
-        props = props2;
-        logger.info("Properties loaded from [" + propsFileName + "].");
-        stream.close();
+        */
+        
+        try
+        {
+        	if( stream != null ) {
+        		props2.load(stream);
+            	logger.info("Properties loaded from [" + propsFileName + "].");
+        	}
+        }
+        catch(IOException e)
+        {
+        	throw e;
+        }
+        finally
+        {
+        	props = props2;
+        	
+        	if( stream != null )
+        		stream.close();
+        }
     }
 
     /**
