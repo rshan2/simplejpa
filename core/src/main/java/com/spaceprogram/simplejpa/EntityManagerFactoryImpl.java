@@ -24,6 +24,7 @@ import javax.persistence.PersistenceException;
 import javax.persistence.spi.PersistenceUnitInfo;
 
 import org.apache.commons.collections.MapUtils;
+import org.apache.commons.lang.StringUtils;
 import org.scannotation.AnnotationDB;
 import org.scannotation.ClasspathUrlFinder;
 
@@ -219,17 +220,7 @@ public class EntityManagerFactoryImpl implements EntityManagerFactory {
             String awsAccessKey = (String) this.props.get(AWSACCESS_KEY_PROP_NAME);
             String awsSecretKey = (String) this.props.get(AWSSECRET_KEY_PROP_NAME);
             
-            /*
-            if (awsAccessKey == null || awsAccessKey.length() == 0) {
-                throw new PersistenceException("AWS Access Key not found. It is a required property.");
-            }
-            if (awsSecretKey == null || awsSecretKey.length() == 0) {
-                throw new PersistenceException("AWS Secret Key not found. It is a required property.");
-            }
-			*/
-
-            if( !( (awsAccessKey == null || awsAccessKey.length() == 0) || 
-            		(awsSecretKey == null || awsSecretKey.length() == 0) ) )
+            if( !(StringUtils.isEmpty(awsSecretKey) || StringUtils.isEmpty(awsAccessKey)) )
             	awsCredentials = new BasicAWSCredentials(awsAccessKey, awsSecretKey);
         }
             
